@@ -8,114 +8,103 @@ output: github_document
 library(tidyverse)
 library(readxl)
 ```
-Read and clean the data; retain line, station, name, station latitude / longitude, routes served, entry, vending, entrance type, and ADA compliance. Convert the entry variable from character (YES vs NO) to a logical variable (the ifelse or case_match function may be useful).
+
+## Problem 1
+
 
 read and clean data
-```{r}
-mta_df = read_csv(file ="./data/NYC_Transit_Subway_Entrance_And_Exit_data.csv")|>
-  janitor::clean_names()
+```{r, echo = FALSE}
+mta_df <- read_csv(file = "./data/NYC_Transit_Subway_Entrance_And_Exit_data.csv") |>
+  janitor::clean_names() |>
+  mutate(entry = ifelse(entry == "YES", TRUE, FALSE)) |>
+  mutate(across(route1:route11, as.character)) |>
+  pivot_longer(
+    cols = route1:route11,
+    names_to = 'route_index',
+    names_prefix = 'route',
+    values_to = 'route'
+  )|>
+  drop_na(route)|>
+  distinct(line, station_name, station_latitude, station_longitude, route_index,route, entry, vending, entrance_type, ada)
+
+head(mta_df)
 
 ```
 
-select relevant columns, mutate entry variable
-```{r}
-mta_clean= mta_df |>
-  select(line, station_name, station_latitude, station_longitude, starts_with("route"), entry, vending, entrance_type, ada) |>
-  mutate(entry = ifelse(entry == "YES", TRUE, FALSE))
-```
+First, the raw dataset has its name cleaned and the 'entry' variable is turned into a logical variable.  
 
-Write a short paragraph about this dataset – explain briefly what variables the dataset contains, describe your data cleaning steps so far, and give the dimension (rows x columns) of the resulting dataset. Are these data tidy?
-```{r}
+The dataset is not tidy as it has information on routes spread across 11 columns. This is because the stations serve different numbers of routes ranging from 1 to 11. So, the 11 columns were combined into route and route index for each station, dropping any rows with NA in the route column (e.g. Now, if a station serves 2 routes, the route index would number the two routes 1 and 2 respectively). Relevant variables are retained with no duplicates. The dataset is now tidy.  
 
-names(mta_clean)
-str(mta_clean)
-dim(mta_clean)
+It contains relevant variables of `r names(mta_df)`, and the dimensions are `r dim(mta_df)`
 
-```
 
-Answer the following questions using these data:
 
 How many distinct stations are there? Note that stations are identified both by name and by line (e.g. 125th St 8th Avenue; 125st Broadway; 125st Lenox); the distinct function may be useful here.
 
 ```{r}
-distinct_station = distinct(mta_clean, line, station_name)
+distinct_station = distinct(mta_df, line, station_name)
 nrow(distinct_station)
 ```
 
 How many stations are ADA compliant?
 ```{r}
-
-ada_stations = mta_clean |>
+ada_stations = mta_df |>
   filter(ada == TRUE) |>
   distinct (station_name, line)
 
 nrow(ada_stations)
-
 ```
 
 What proportion of station entrances / exits without vending allow entrance?
 ```{r}
-no_vending_entrances <- mta_clean |>
+no_vending_entrances <- mta_df |>
   filter(vending == "NO") |>
   summarise(proportion = mean(entry))
 no_vending_entrances
-
 ```
 
 
 
-Reformat data so that route number and route name are distinct variables. How many distinct stations serve the A train? Of the stations that serve the A train, how many are ADA compliant?
+Reformat data so that route number and route name are distinct variables.
 
 ```{r}
-mta_tidy <- mta_clean |>
-  mutate(across(route1:route11, as.character)) |>
-  pivot_longer(
-    cols = route1:route11,
-    names_to = 'route',
-    values_to = 'route_value'
-  ) |>
+mta_new <- mta_df |>
   mutate(
-    route_name = ifelse(is.na(suppressWarnings(as.numeric(route_value))), route_value, NA),
-    route_number = ifelse(!is.na(suppressWarnings(as.numeric(route_value))), as.numeric(route_value), NA)
-  ) |>
-  select(-route_value) 
+    route_name = ifelse(is.na(as.numeric(route)), route, NA),
+    route_number = ifelse(!is.na(as.numeric(route)), as.numeric(route), NA)
+  )|>
+  select(
+    line, station_name, route_index, route_name, route_number, everything()
+  )
+view(mta_new)
 ```
 
-
-```{r}
-A_train = mta_tidy |>
+How many distinct stations serve the A train? Of the stations that serve the A train, how many are ADA compliant?
+```{r, eval=FALSE}
+A_train = mta_new |>
   filter (route_name =="A")
-
 nrow(distinct(A_train, station_name, line))
 
 ada_A_train = A_train|>
   filter(ada == TRUE)
-
 nrow(distinct(ada_A_train, station_name, line))
 ```
 
 
 
-Problem 2
-
-This problem uses the Mr. Trash Wheel dataset, available as an Excel file on the course website.
-
-Read and clean the Mr. Trash Wheel sheet:
+## Problem 2
 specify the sheet in the Excel file and to
 omit non-data entries (rows with notes / figures; columns containing notes) using arguments in read_excel
 use reasonable variable names
 
 ```{r}
-trashwheel_df= read_excel("./data/202309 Trash Wheel Collection Data.xlsx",
+mr_trashwheel= read_excel("./data/202309 Trash Wheel Collection Data.xlsx",
                           sheet=1, 
                           skip=1, 
                           na = c(".", "NA", ""),
-                          )
-trashwheel_df = janitor::clean_names(trashwheel_df)
-
-names(trashwheel_df)
-
-trashwheel_df = select(trashwheel_df, -x15, -x16)
+                          )|>
+  janitor::clean_names()|>
+  select(-x15,-x16)
 
 ```
 
@@ -124,22 +113,73 @@ omit rows that do not include dumpster-specific data
 round the number of sports balls to the nearest integer and converts the result to an integer variable (using as.integer)
 
 ```{r}
-trashwheel_df = trashwheel_df[!is.na(trashwheel_df[, "dumpster"]), ]
-
-trashwheel_df[['sports_balls']] <- as.integer(round(trashwheel_df[['sports_balls']]))
-
-view(trashwheel_df)
-
-
+mr_trashwheel = mr_trashwheel|>
+  drop_na(dumpster)|>
+  mutate (sports_balls = as.integer(round(sports_balls)))
 ```
 
 Use a similar process to import, clean, and organize the data for Professor Trash Wheel and Gwynnda, and combine this with the Mr. Trash Wheel dataset to produce a single tidy dataset. To keep track of which Trash Wheel is which, you may need to add an additional variable to both datasets before combining.
 
+```{r}
+professor_trashwheel= read_excel("./data/202309 Trash Wheel Collection Data.xlsx",
+                          sheet=2, 
+                          skip=1, 
+                          na = c(".", "NA", ""),
+                          )|>
+  janitor::clean_names()|>
+  mutate(trashwheel = "professor trashwheel")|>
+  drop_na(dumpster)
 
 
-Write a paragraph about these data; you are encouraged to use inline R. Be sure to note the number of observations in the resulting dataset, and give examples of key variables. For available data, what was the total weight of trash collected by Professor Trash Wheel? What was the total number of cigarette butts collected by Gwynnda in June of 2022?
+gwynnda= read_excel("./data/202309 Trash Wheel Collection Data.xlsx",
+                          sheet=4, 
+                          skip=1, 
+                          na = c(".", "NA", ""),
+                          )|>
+  janitor::clean_names()|>
+  mutate(trashwheel = "gwynnda trashwheel")|>
+  drop_na(dumpster)
 
-Problem 3
+mr_trashwheel = mr_trashwheel|>
+  mutate(year = as.numeric(year),
+         trashwheel = "mr trashwheel")
+  
+
+
+```
+
+```{r}
+trashwheel_df <- bind_rows(
+  mr_trashwheel,
+  professor_trashwheel,
+  gwynnda
+)
+```
+
+
+Write a paragraph about these data; you are encouraged to use inline R. 
+Be sure to note the number of observations in the resulting dataset, and give examples of key variables. 
+For available data, what was the total weight of trash collected by Professor Trash Wheel? What was the total number of cigarette butts collected by Gwynnda in June of 2022?
+
+```{r}
+weight_professor = trashwheel_df|>
+  filter(trashwheel == 'professor trashwheel')|>
+  summarize (total_weight = sum(weight_tons))
+
+weight_professor
+```
+
+```{r}
+cigarette_gwynnda = trashwheel_df|>
+  filter(trashwheel == 'gwynnda trashwheel')|>
+  summarize(cigarette = sum(cigarette_butts))
+
+cigarette_gwynnda
+```
+
+
+
+## Problem 3
 
 your goal is to create a single, well-organized dataset with all the information contained in these data files. 
 To that end: import, clean, tidy, and otherwise wrangle each of these datasets; 
@@ -159,17 +199,31 @@ results = read_csv(file = './data/gbb_datasets/results.csv', skip=2)|>
 check for completeness and correctness across datasets (e.g. by viewing individual datasets and using anti_join); 
 
 ```{r}
-anti_join(results, bakes, by = 'baker')
+# extract first name from bakers
+
+bakers = bakers|>
+  mutate(baker = word(baker_name,1))|>
+  select(series, baker, everything())
+
+
+bakes_results = bakes|>
+  full_join (results, by = c('baker','series','episode'))
+
+full_df = bakers|>
+  full_join(bakes_results, by = c('baker','series'))|>
+  select(baker_name, series, episode, result, technical, signature_bake, show_stopper, everything(), -baker)|>
+  drop_na(result)
+
 ```
 
 
-merge to create a single, final dataset; 
-
-and organize this so that variables and observations are in meaningful orders. 
 
 Export the result as a CSV in the directory containing the original datasets.
 
+```{r}
 
+write.csv(full_df, "./data/gbb_datasets/great_british_bake_off.csv", row.names = FALSE)
+```
 
 
 
