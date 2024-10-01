@@ -87,7 +87,7 @@ ada_A_train = A_train|>
 ## Problem 2
 
 ```{r, message = FALSE}
-mr_trashwheel= read_excel("./data/202309 Trash Wheel Collection Data.xlsx",
+mr_trashwheel= read_excel("./data/202409 Trash Wheel Collection Data.xlsx",
                           sheet=1, 
                           skip=1, 
                           na = c(".", "NA", ""),
@@ -109,7 +109,7 @@ mr_trashwheel = mr_trashwheel|>
 
 Import, clean, and organize the data for Professor Trash Wheel and Gwynnda. And combine this with the Mr. Trash Wheel dataset to produce a single tidy dataset.Keep track of which Trash Wheel is which.
 ```{r}
-professor_trashwheel= read_excel("./data/202309 Trash Wheel Collection Data.xlsx",
+professor_trashwheel= read_excel("./data/202409 Trash Wheel Collection Data.xlsx",
                           sheet=2, 
                           skip=1, 
                           na = c(".", "NA", ""),
@@ -119,7 +119,7 @@ professor_trashwheel= read_excel("./data/202309 Trash Wheel Collection Data.xlsx
   drop_na(dumpster)
 
 
-gwynnda= read_excel("./data/202309 Trash Wheel Collection Data.xlsx",
+gwynnda= read_excel("./data/202409 Trash Wheel Collection Data.xlsx",
                           sheet=4, 
                           skip=1, 
                           na = c(".", "NA", ""),
