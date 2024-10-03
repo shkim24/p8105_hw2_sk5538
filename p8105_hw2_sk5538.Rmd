@@ -9,6 +9,7 @@ Necessary packages are loaded.
 ```{r, message = FALSE}
 library(tidyverse)
 library(readxl)
+options(scipen = 999)
 ```
 
 ## Problem 1
@@ -31,9 +32,9 @@ mta_df <- read_csv(file = "./data/NYC_Transit_Subway_Entrance_And_Exit_data.csv"
 head(mta_df)
 ```
 
-First and foremost, the names of the variables are cleaned and the 'entry' variable is turned into a logical variable.  
+First, the names of the variables are cleaned and the 'entry' variable is turned into a logical variable as instructed.   
 
-With just this, the dataset is not tidy as it has information on routes spread across 11 columns. This is because the stations serve different numbers of routes ranging from 1 to 11. So, the 11 columns were combined into route and route index for each station, dropping any rows with NA in the route column (e.g. Now, if a station serves 2 routes, the route index would index the two routes served 1 and 2 respectively). Relevant variables are retained with no duplicates. The dataset is now tidy.  
+Afte this step, the dataset is not tidy as it has information on routes spread across 11 columns. This is because the stations serve different numbers of routes ranging from 1 to 11. So, the 11 columns were combined into route and route index for each station, dropping any rows with NA in the route column (e.g. Now, if a station serves 2 routes, the route index would index the two routes served 1 and 2 respectively). Relevant variables are retained with no duplicates. The dataset is now tidy.  
 
 It contains relevant variables of `r names(mta_df)`, and the dimensions are `r dim(mta_df)`
 
@@ -48,18 +49,15 @@ ada_stations = mta_df |>
 
 There are `r nrow(distinct_station)` distinct stations, and `r nrow(ada_stations)` distinct stations are ADA compliant
 
-What proportion of station entrances / exits without vending allow entrance?
 ```{r}
 no_vending_entrances <- mta_df |>
   filter(vending == "NO") |>
   summarise(proportion = mean(entry))
-print(no_vending_entrances)
 ```
 
-
+The proportion of station entrances / exits without vending is `r no_vending_entrances`
 
 Reformat data so that route number and route name are distinct variables.
-
 ```{r}
 mta_new <- mta_df |>
   mutate(
@@ -97,10 +95,8 @@ mr_trashwheel= read_excel("./data/202409 Trash Wheel Collection Data.xlsx",
 
 ```
 
-
 Omit rows that do not include dumpster-specific data.  
 Round the number of sports balls to the nearest integer and converts the result to an integer variable.
-
 ```{r}
 mr_trashwheel = mr_trashwheel|>
   drop_na(dumpster)|>
@@ -133,37 +129,36 @@ mr_trashwheel = mr_trashwheel|>
          trashwheel = "mr trashwheel")
   
 
-trashwheel_df <- bind_rows(
+trashwheel_df = bind_rows(
   mr_trashwheel,
   professor_trashwheel,
   gwynnda
 )
 
+
 ```
 
-
-Write a paragraph about these data; you are encouraged to use inline R. 
-Be sure to note the number of observations in the resulting dataset, and give examples of key variables. 
+There is a total of `r nrow(trashwheel_df)` observations in the resulting dataset. Some of the key variables are the dumpster number, the date, and the amount of trash collected measured in tons. Among the weight collected, the amount of some types of trash is also shown, such as plastic bottles, cigarette butts, plastic bags, and so on. The full list of variables are as following `r names(trashwheel_df)`
 
 ```{r}
 weight_professor = trashwheel_df|>
   filter(trashwheel == 'professor trashwheel')|>
-  summarize (total_weight = sum(weight_tons))
+  summarize (total_weight = sum(weight_tons, na.rm=TRUE))
 
 
 cigarette_gwynnda = trashwheel_df|>
   filter(trashwheel == 'gwynnda trashwheel', year == 2022, month == "June")|>
-  summarize(cigarette = sum(cigarette_butts))
+  summarize(cigarette = sum(cigarette_butts, na.rm=TRUE))
 
 ```
-The total weight of trash collected by Professor Trash Wheel is `r weight_professor`, and the total number of cigarette butts collected by Gwynnda in June of 2022 is `r cigarette_gwynnda`.
+The total weight of trash collected by Professor Trash Wheel is `r weight_professor` tons, and the total number of cigarette butts collected by Gwynnda in June of 2022 is `r cigarette_gwynnda`.
 
 
 ## Problem 3
 
 Import, clean, tidy, and otherwise wrangle each of these datasets.
 
-```{r, message= FALSE}
+```{r, echo=TRUE, message=FALSE}
 
 bakers = read_csv(file = './data/gbb_datasets/bakers.csv') |>
   janitor::clean_names()
@@ -175,8 +170,18 @@ results = read_csv(file = './data/gbb_datasets/results.csv', skip=2)|>
   janitor::clean_names()
 ```
 
-check for completeness and correctness across datasets (e.g. by viewing individual datasets and using anti_join); 
 
+```{r, eval = FALSE}
+view(bakers)
+view(bakes)
+view(results)
+anti_join(results, bakes, by='baker')
+anti_join(bakers, bakes)
+anti_join(bakers, results)
+```
+
+
+Merge the datasets and tidy it to be in a meaningful order.  
 ```{r}
 bakes_results = bakes|>
   full_join (results, by = c('baker','series','episode'))
@@ -191,7 +196,7 @@ full_df = bakers|>
   drop_na(result)|>
   arrange(series, baker_name)
 
-head(full_df)
+head(full_df,10)
 ```
 
 Export the result as a CSV in the directory containing the original datasets.
@@ -199,28 +204,26 @@ Export the result as a CSV in the directory containing the original datasets.
 write.csv(full_df, "./data/gbb_datasets/great_british_bake_off.csv", row.names = FALSE)
 ```
 
-Describe your data cleaning process, including any questions you have or choices you made. Briefly discuss the final dataset.  
+After skipping unnecessary rows, cleaning the variable names,and handling any missing values, I first joined the bakes dataset and the result dataset as they had a lot of variables in common. I used full_join by the baker's name, series, and episode to avoid problems regarding more than one people having the same first name.  
 
-After skipping unnecessary rows, cleaning the variable names,and handling any missing values, I first joined the bakes dataset and the result dataset as they had a lot of variables in common. I used full_join by the baker's name, series, and episode to avoid problems regarding more than one people having the same name.  
+In order to join the bakes+results joined dataset with the bakers dataset by the bakers' names, names on the bakers dataset first had to be modified. It had full names while bakes and results dataset had first names only. I extracted the first names from the bakers dataset 'baker_name' and used that to join the dataset with bakes_results. For the fully merged dataset, I decided to retain the full name instead of the first names to avoid same name issues.  
 
-In order to join the bakes_results joined dataset with the bakers dataset by the bakers' names, names on the bakers dataset first had to be modified. It had full names while bakes and results dataset had first names only. I extracted the first names from the bakers dataset 'baker_name' and used that to join the dataset with bakes_results. For the fully merged dataset, I decided to retain the full name instead of the first names to same name issues.  
+After merging the datasets, I dropped rows with result == NA in order to remove unnecessary rows corresponding to after a baker is eliminated from the show. I then reordered the variables and arranged the rows to make it more readable.  
 
-After merging the datasets, I dropped rows with result == NA in order to remove unnecessary rows corresponding to after a baker is eiliminated from the show. I then reordered the variables and arranged the rows to make it more readable.  
-
-
-In the final dataset, the bakers and their result, score, signature bake, and show stopper of each episode are shown in the order of the series. Within the series, the bakers are organized in alphabetial order. 
+Overall, the final dataset is arranged by ascending series. Within each series, the data is grouped by bakers' names. The name, result, score, signature bake, and show stopper are shown in order of the episodes the baker was in, until they are eliminated from the show. Bakers' names in each series are arranged in alphabetical order.The information about each baker (age, occupation, and hometown) are the last three columns, because it is repetitive and not of high important regarding the show. 
 
 
-Create a reader-friendly table showing the star baker or winner of each episode in Seasons 5 through 10. Comment on this table – were there any predictable overall winners? Any surprises?
+Create a reader-friendly table showing the star baker or winner of each episode in Seasons 5 through 10.
 ```{r}
 winner_df = full_df|>
   filter (series >= 5 & series <= 10, result == 'WINNER'| result =='STAR BAKER')|>
   arrange(series, episode)|>
   select(series, episode, result, baker_name, everything())
 
-head(winner_df)
+head(winner_df,12)
 ```
-(in the last episode, it is unusual that David won the final round without haveing any star baker throughout the season)
+From seasons 5 to 10, the winner of the season was a start baker in at least one of the episodes in most cases. However, in season 10, it is unique that David Atherton won the season without any prior star baker.  
+
 
 
 ```{r, message= FALSE}
